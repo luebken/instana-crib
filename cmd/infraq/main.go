@@ -75,15 +75,19 @@ func main() {
 			Prefix: "apiToken",
 		})
 
+	t, _ := time.Parse("2006-01-02", "2020-03-01")
+	to := t.Add(time.Hour * time.Duration(1))
+	log.Printf("time to %+v", to)
+
 	// https://instana.github.io/openapi/#tag/Infrastructure-Metrics
 	// https://docs.instana.io/core_concepts/data_collection/#data-retention
 	var query = &openapi.GetInfrastructureMetricsOpts{
 		GetCombinedMetrics: optional.NewInterface(openapi.GetCombinedMetrics{
 			TimeFrame: openapi.TimeFrame{
-				WindowSize: 3600, //in ms
-				//To:  unix-timestamp
+				WindowSize: 60 * 60 * 1000, //one hour in ms
+				// To:         to.Unix(), // TODO doesn't work
 			},
-			Rollup:  1, // in sec. possible values 1,5,60,300,3600
+			Rollup:  300, // in sec. possible values 1,5,60,300,3600
 			Query:   queryString,
 			Plugin:  Plugin,
 			Metrics: []string{Metric},
@@ -104,15 +108,15 @@ func main() {
 	for _, item := range configResp.Items {
 
 		log.Printf("Host: %+v\n", item.Host)
-		// TODO get k8s cluster & namespace
 		log.Printf("SnapshotId: %+v\n", item.SnapshotId)
 
-		//TODO why are there multiple values ?
-		millis := item.Metrics[Metric][0][0]
-		ttime := time.Unix(0, int64(millis)*int64(time.Millisecond))
-		value := item.Metrics[Metric][0][1]
+		for i := range item.Metrics[Metric] {
+			millis := item.Metrics[Metric][i][0]
+			ttime := time.Unix(0, int64(millis)*int64(time.Millisecond))
+			value := item.Metrics[Metric][i][1]
+			log.Printf("Time: %v, CPU used: %v\n", ttime, value)
+		}
 
-		log.Printf("Time: %v, CPU used: %v\n", ttime, value)
 		log.Println("")
 	}
 
