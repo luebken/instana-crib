@@ -85,7 +85,7 @@ func main() {
 		GetCombinedMetrics: optional.NewInterface(openapi.GetCombinedMetrics{
 			TimeFrame: openapi.TimeFrame{
 				WindowSize: 60 * 60 * 1000, //one hour in ms
-				// To:         to.Unix(), // TODO doesn't work
+				//To:         to.UnixNano(), //TODO Doesn't work
 			},
 			Rollup:  300, // in sec. possible values 1,5,60,300,3600
 			Query:   queryString,
