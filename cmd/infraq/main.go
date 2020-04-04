@@ -15,12 +15,10 @@ import (
 )
 
 const (
-	// SeriesTimestamp index for the timestamp in the metric results.
-	SeriesTimestamp = 0
-	// SeriesValue index for the value in the metric results.
-	SeriesValue = 1
-	// Metric is the metric.
+	// Metric for the report
 	Metric = "cpu.user"
+	// Plugin to query
+	Plugin = "host"
 )
 
 func newConfiguration(apiURL string, isInsecure bool) (*openapi.Configuration, error) {
@@ -49,7 +47,7 @@ func main() {
 	var apiURL = os.Getenv("INSTANA_URL")
 	var queryString string
 
-	flag.StringVar(&queryString, "query", "entity.zone:us-east-2", "Infrastructure query to use as part of the metrics request")
+	flag.StringVar(&queryString, "query", "entity.zone:us-east-2", "DFQ Query")
 	flag.Parse()
 
 	log.Printf("API Key Set: %v\n", apiToken != "")
@@ -87,7 +85,7 @@ func main() {
 			},
 			Rollup:  1, // in sec. possible values 1,5,60,300,3600
 			Query:   queryString,
-			Plugin:  "host",
+			Plugin:  Plugin,
 			Metrics: []string{Metric},
 		}),
 	}
