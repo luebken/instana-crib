@@ -1,20 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"flag"
-	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/antihax/optional"
 	"github.com/nfisher/instana-crib/pkg/instana/openapi"
-	"github.com/wcharczuk/go-chart"
 )
 
 const (
@@ -80,12 +77,15 @@ func main() {
 			Prefix: "apiToken",
 		})
 
+	// https://instana.github.io/openapi/#tag/Infrastructure-Metrics
+	// https://docs.instana.io/core_concepts/data_collection/#data-retention
 	var query = &openapi.GetInfrastructureMetricsOpts{
 		GetCombinedMetrics: optional.NewInterface(openapi.GetCombinedMetrics{
 			TimeFrame: openapi.TimeFrame{
-				WindowSize: 3600,
+				WindowSize: 3600, //in ms
+				//To:  unix-timestamp
 			},
-			Rollup:  1,
+			Rollup:  1, // in sec. possible values 1,5,60,300,3600
 			Query:   queryString,
 			Plugin:  "host",
 			Metrics: []string{Metric},
@@ -97,98 +97,25 @@ func main() {
 		log.Fatalf("error in retrieving metrics: %s\n", err.(openapi.GenericOpenAPIError).Body())
 	}
 
-	log.Printf("Rate Limit Remaining: %#v\n", httpResp.Header.Get("X-Ratelimit-Remaining"))
-
 	if len(configResp.Items) < 1 {
 		log.Fatalln("No metrics found")
 	}
+	log.Printf("Rate Limit Remaining: %#v\n", httpResp.Header.Get("X-Ratelimit-Remaining"))
+	log.Println("")
 
 	for _, item := range configResp.Items {
-		prefix := item.Host
-		log.Println(prefix, len(item.Metrics[Metric]))
 
-		lineChart := newChart(&item)
-		if lineChart == nil {
-			continue
-		}
+		log.Printf("Host: %+v\n", item.Host)
+		// TODO get k8s cluster & namespace
+		log.Printf("SnapshotId: %+v\n", item.SnapshotId)
 
-		err := renderChart(prefix, lineChart)
-		if err != nil {
-			log.Printf("error rendering chart %s: %v\n", prefix, err.Error())
-		}
+		//TODO why are there multiple values ?
+		millis := item.Metrics[Metric][0][0]
+		ttime := time.Unix(0, int64(millis)*int64(time.Millisecond))
+		value := item.Metrics[Metric][0][1]
+
+		log.Printf("Time: %v, CPU used: %v\n", ttime, value)
+		log.Println("")
 	}
 
-}
-
-func renderChart(name string, lineChart *chart.Chart) error {
-	buffer := bytes.NewBuffer([]byte{})
-	err := lineChart.Render(chart.PNG, buffer)
-	if err != nil {
-		return err
-	}
-
-	f, err := os.Create(fmt.Sprintf("%s.png", name))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = io.Copy(f, buffer)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func newChart(item *openapi.MetricItem) *chart.Chart {
-	metricsLen := len(item.Metrics[Metric])
-	if metricsLen < 2 {
-		log.Printf("no metrics available: %s\n", item.Host)
-		return nil
-	}
-	xValues := make([]float64, metricsLen, metricsLen)
-	yValues := make([]float64, metricsLen, metricsLen)
-
-	var lastTimestamp float32
-	for i, v := range item.Metrics[Metric] {
-		currentTimestamp := v[SeriesTimestamp]
-		value := v[SeriesValue]
-
-		if lastTimestamp >= currentTimestamp {
-			log.Printf("timestamps out of order %f, %f\n", lastTimestamp, currentTimestamp)
-		}
-		lastTimestamp = currentTimestamp
-
-		xValues[i] = float64(currentTimestamp)
-		yValues[i] = float64(value)
-	}
-
-	return &chart.Chart{
-		Title:      item.Host,
-		TitleStyle: chart.StyleShow(),
-		Background: chart.Style{
-			Padding: chart.Box{
-				Top: 75,
-			},
-		},
-		XAxis: chart.XAxis{
-			Name:      "time",
-			NameStyle: chart.StyleShow(),
-			Style:     chart.StyleShow(),
-		},
-		YAxis: chart.YAxis{
-			Name:      "usage",
-			NameStyle: chart.StyleShow(),
-			Style:     chart.StyleShow(),
-		},
-		Width:  800,
-		Height: 600,
-		Series: []chart.Series{
-			chart.ContinuousSeries{
-				XValues: xValues,
-				YValues: yValues,
-			},
-		},
-	}
 }
