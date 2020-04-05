@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	// Metric for the report
-	Metric = "cpu.user"
+	// Metric1 cpu.used
+	Metric1 = "cpu.used"
+	// Metric2 memory.used
+	Metric2 = "memory.used"
 	// Plugin to query
 	Plugin = "host"
 )
@@ -90,7 +92,7 @@ func main() {
 			Rollup:  300, // in sec. possible values 1,5,60,300,3600
 			Query:   queryString,
 			Plugin:  Plugin,
-			Metrics: []string{Metric},
+			Metrics: []string{Metric1, Metric2},
 		}),
 	}
 
@@ -110,13 +112,17 @@ func main() {
 		log.Printf("Host: %+v\n", item.Host)
 		log.Printf("SnapshotId: %+v\n", item.SnapshotId)
 
-		for i := range item.Metrics[Metric] {
-			millis := item.Metrics[Metric][i][0]
+		for i := range item.Metrics[Metric1] {
+			millis := item.Metrics[Metric1][i][0]
+			millis2 := item.Metrics[Metric2][i][0]
+			if millis != millis2 {
+				log.Println("Err: Different time for metrics")
+			}
 			ttime := time.Unix(0, int64(millis)*int64(time.Millisecond))
-			value := item.Metrics[Metric][i][1]
-			log.Printf("Time: %v, CPU used: %v\n", ttime, value)
+			cpuUsed := item.Metrics[Metric1][i][1]
+			memoryUsed := item.Metrics[Metric2][i][1]
+			log.Printf("Time: %v, CPU used: %v, Memory used: %v\n", ttime, cpuUsed, memoryUsed)
 		}
-
 		log.Println("")
 	}
 
