@@ -77,9 +77,8 @@ func main() {
 			Prefix: "apiToken",
 		})
 
-	t, _ := time.Parse("2006-01-02", "2020-03-01")
-	to := t.Add(time.Hour * time.Duration(1))
-	log.Printf("time to %+v", to)
+	cdt, _ := time.LoadLocation("America/Chicago")
+	to := time.Date(2020, time.Month(4), 02, 0, 0, 0, 0, cdt)
 
 	// https://instana.github.io/openapi/#tag/Infrastructure-Metrics
 	// https://docs.instana.io/core_concepts/data_collection/#data-retention
@@ -87,7 +86,7 @@ func main() {
 		GetCombinedMetrics: optional.NewInterface(openapi.GetCombinedMetrics{
 			TimeFrame: openapi.TimeFrame{
 				WindowSize: 60 * 60 * 1000, //one hour in ms
-				//To:         to.UnixNano(), //TODO Doesn't work
+				To:         to.Unix() * 1000,
 			},
 			Rollup:  300, // in sec. possible values 1,5,60,300,3600
 			Query:   queryString,
